@@ -1,1 +1,1 @@
-[{"name":"1-start.jpg","query":"?shot=start&seed=1"},{"name":"2-lobby.jpg","query":"?shot=lobby&seed=1"},{"name":"3-play.jpg","query":"?shot=play&seed=1"},{"name":"4-end.jpg","query":"?shot=end&seed=1"}]
+[{"name":"1-start.jpg","query":"?shot=start&seed=1"},{"name":"2-lobby.jpg","query":"?shot=lobby&seed=1&map=yard10&mode=tdm"},{"name":"3-night.jpg","query":"?shot=night&seed=1"},{"name":"4-results.jpg","query":"?shot=results&seed=1"}]

@@ -8,9 +8,16 @@ import { GRENADES } from './weapons.js';
 const TRACER_POOL = 16;
 const SMOKE_SPHERES = 9;
 
+// Hooks other modules set: onDamage reports every hit for the stats screen,
+// onMapSwap rebuilds the shootable cache after a map switch.
+export const combatHooks = { onDamage: null, onMapSwap: null };
+
 export function createCombat(scene, world, state, audio, random) {
   const raycaster = new THREE.Raycaster();
   raycaster.far = 140;
+  // A map swap replaces world.shootables; the cached target list is rebuilt
+  // on the next shot instead of keeping the old map's meshes.
+  combatHooks.onMapSwap = () => { targets = null; targetsCount = -1; };
   const origin = new THREE.Vector3();
   const direction = new THREE.Vector3();
   const toTarget = new THREE.Vector3();
@@ -123,6 +130,7 @@ export function createCombat(scene, world, state, audio, random) {
   function damageActor(shooter, target, amount, part, onKill, onHit) {
     if (!target.alive) return false;
     target.health -= amount;
+    if (combatHooks.onDamage) combatHooks.onDamage(shooter, target);
     if (onHit) onHit(target, part === 'head');
     if (target.health > 0) return false;
     target.health = 0;

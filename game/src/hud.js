@@ -65,6 +65,7 @@ export function createHud() {
   let bannerTimer = 0;
   let last = {};
   let buyHandler = null;
+  let matchMode = 'plant'; // 'plant' rounds or 'tdm' first-to-20
 
   // Tap a row to buy (touch); the keyboard path stays exactly as it was.
   const isTouchUI = () => document.body.classList.contains('touch');
@@ -122,9 +123,19 @@ export function createHud() {
       setText(grenadeEl, 'nades', `Frag ${frag} · Smoke ${smoke}`);
     },
     setTimer(seconds, phase) {
-      const text = phase === 'buy' ? `BUY ${Math.ceil(seconds)}` : `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
+      const text = matchMode === 'tdm' ? 'FIRST TO 20'
+        : phase === 'buy' ? `BUY ${Math.ceil(seconds)}` : `${Math.floor(seconds / 60)}:${String(Math.floor(seconds % 60)).padStart(2, '0')}`;
       setText(timerEl, 'timer', text);
       timerEl.classList.toggle('urgent', phase !== 'buy' && seconds <= 10);
+    },
+    setMatchMode(mode) {
+      matchMode = mode;
+    },
+    setTdmScore(jackals, wardens) {
+      const key = `tdm-${jackals}-${wardens}`;
+      if (last.scoreKey === key) return;
+      last.scoreKey = key;
+      scoreEl.innerHTML = `<b class="tj">${TEAM_NAME[0]}</b> ${jackals} — ${wardens} <b class="tw">${TEAM_NAME[1]}</b> · First to 20`;
     },
     setScore(score, round) {
       const key = `${score[0]}-${score[1]}-${round}`;
@@ -202,7 +213,7 @@ export function createHud() {
       if (buyHint) {
         buyHint.textContent = isTouchUI()
           ? 'Tap an item to buy · Done to close'
-          : 'Keys 1–6 to buy · B to close · the round starts when the timer ends';
+          : 'Keys 1–8 to buy · B to close · the round starts when the timer ends';
       }
       this.refreshBuy(player);
     },

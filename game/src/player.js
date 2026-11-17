@@ -17,7 +17,7 @@ const FRICTION = 9;
 const GRAVITY = 20;
 const JUMP_SPEED = 6.2;
 
-export function createMover(colliders, x = 0, z = 0) {
+export function createMover(colliders, x = 0, z = 0, speedMul = 1) {
   const mover = {
     position: new THREE.Vector3(x, 0, z),
     velocity: new THREE.Vector3(),
@@ -27,6 +27,7 @@ export function createMover(colliders, x = 0, z = 0) {
     onGround: true,
     crouching: false,
     height: STAND_HEIGHT,
+    speedMul,
   };
   const probe = new THREE.Box3();
   const wish = new THREE.Vector3();
@@ -50,7 +51,7 @@ export function createMover(colliders, x = 0, z = 0) {
     const eyeTarget = mover.crouching ? CROUCH_EYE : STAND_EYE;
     mover.eye += (eyeTarget - mover.eye) * Math.min(1, dt * 12);
 
-    const speed = mover.crouching ? CROUCH_SPEED : WALK_SPEED;
+    const speed = (mover.crouching ? CROUCH_SPEED : WALK_SPEED) * mover.speedMul;
     wish.set(wishX, 0, wishZ);
     const blend = Math.min(1, (mover.onGround ? GROUND_ACCEL : AIR_ACCEL) * dt / speed);
     mover.velocity.x += (wish.x * speed - mover.velocity.x) * blend;
@@ -96,6 +97,9 @@ export function createMover(colliders, x = 0, z = 0) {
   return {
     state: mover,
     step,
+    setSpeedMul(m) {
+      mover.speedMul = m;
+    },
     groundSpeed() {
       return Math.hypot(mover.velocity.x, mover.velocity.z);
     },
@@ -139,6 +143,9 @@ export function createPlayer(colliders) {
     step,
     look,
     recoil,
+    setSpeedMul(m) {
+      mover.setSpeedMul(m);
+    },
     groundSpeed: mover.groundSpeed,
   };
 }

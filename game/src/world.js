@@ -270,6 +270,10 @@ export function createWorld(scene) {
   siteLightB.position.set(24, 3.5, -14);
   scene.add(siteLightB);
 
+  // Map swaps remove and restore the sky and lights with the geometry:
+  // the handles ride on the group so the switcher can find them.
+  group.userData.skyBits = { skyDome, sunGlow, sunCore, sky, sun, fill };
+
   return { colliders, shootables, group, siteLightA, siteLightB };
 }
 

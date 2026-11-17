@@ -66,6 +66,14 @@ export function createAudio() {
     } else if (weapon === 'shotgun') {
       noise(when, 0.22, 'bandpass', 500, 0.9 * scale, 0.8);
       tone(when, 'sine', 130, 40, 0.25, 0.8 * scale);
+    } else if (weapon === 'dmr') {
+      noise(when, 0.2, 'lowpass', 1200, 0.85 * scale);
+      tone(when, 'sine', 200, 50, 0.22, 0.65 * scale);
+      tone(when + 0.05, 'square', 900, 900, 0.04, 0.2 * scale);
+    } else if (weapon === 'twin') {
+      noise(when, 0.26, 'bandpass', 420, 1.0 * scale, 0.7);
+      tone(when, 'sine', 110, 32, 0.3, 0.9 * scale);
+      noise(when + 0.02, 0.12, 'highpass', 1800, 0.4 * scale);
     } else if (weapon === 'smg') {
       noise(when, 0.08, 'highpass', 1400, 0.5 * scale);
       tone(when, 'square', 220, 90, 0.07, 0.25 * scale);
@@ -85,6 +93,10 @@ export function createAudio() {
   return {
     unlock() { ensure(); },
     shot,
+    setVolume(level) {
+      if (!ensure()) return;
+      master.gain.value = Math.min(1, Math.max(0, level));
+    },
     dryFire() {
       if (!ensure()) return;
       click(ctx.currentTime, 1400, 0.15);

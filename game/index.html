@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>SANDLINE — Yard 9</title>
 <link rel="stylesheet" href="./src/screens.css">
+<link rel="stylesheet" href="./src/expansion.css">
 <style>
   /* Look plan: dusk sand, dark steel, one teal accent. Same names as palette.js. */
   :root {
@@ -210,6 +211,14 @@
     <div id="alive">Alive 4 vs 4</div>
   </div>
   <div id="killfeed"></div>
+  <div id="scoreboard" hidden>
+    <h2>Deathmatch</h2>
+    <div class="sb-score"><span class="tj">Jackals</span> <span id="sb-j">0</span> — <span id="sb-w">0</span> <span class="tw">Wardens</span> · First to 20</div>
+    <table>
+      <thead><tr><th>Player</th><th>Kills</th><th>Deaths</th></tr></thead>
+      <tbody id="sb-rows"></tbody>
+    </table>
+  </div>
   <div id="health">
     <div id="health-row"><span id="health-num">100</span><span id="health-label">HEALTH</span></div>
     <div id="health-bar"><div id="health-fill"></div></div>
@@ -237,7 +246,7 @@
     <h2>Buy — Round <span id="buy-round">1</span></h2>
     <div id="buy-money">$800</div>
     <div id="buy-rows"></div>
-    <div id="buy-hint">Keys 1–6 to buy · B to close · the round starts when the timer ends</div>
+    <div id="buy-hint">Keys 1–8 to buy · B to close · the round starts when the timer ends</div>
     <button id="buy-close" type="button">Done</button>
   </div>
 </div>
@@ -248,6 +257,7 @@
     <h1 id="overlay-title">SAND<span>LINE</span></h1>
     <p id="overlay-copy">Yard 9, dusk. Jackals plant the charge at A or B; Wardens stop them. First to 5 rounds takes the match.</p>
     <button id="play" type="button">Click to play</button>
+    <button id="settings-open" type="button">Settings</button>
     <ul class="keys">
       <li><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Move</li>
       <li><kbd>Mouse</kbd> Look · <kbd>Click</kbd> Fire · <kbd>Right-click</kbd> Aim</li>
@@ -276,11 +286,25 @@
     <div class="eyebrow">YARD 9 · DUSK · 4V4 · FIRST TO 5</div>
     <h1>LOBBY</h1>
     <p class="lobby-sub">Jackals plant the charge. Wardens stop them. Pick your agent, then go.</p>
+    <div class="pickers">
+      <div class="picker-row">
+        <span class="picker-label">Map</span>
+        <button id="map-y9" class="pick on" type="button">Yard 9 · Dusk</button>
+        <button id="map-y10" class="pick" type="button">Yard 10 · Night</button>
+      </div>
+      <div class="picker-row">
+        <span class="picker-label">Mode</span>
+        <button id="mode-plant" class="pick on" type="button">Plant / Defuse</button>
+        <button id="mode-tdm" class="pick" type="button">Deathmatch</button>
+      </div>
+      <div class="picked-line"><span id="picked-line">Yard 9 Dusk · Plant / Defuse · first to 5</span></div>
+    </div>
     <div class="lobby-main">
       <div class="agent-stage">
         <canvas id="agent-view" width="520" height="520"></canvas>
         <div class="agent-name"><span id="agent-call">YOU</span><span id="agent-role">Point</span></div>
         <div class="agent-kit"><span id="agent-gun">VK-47 Dune</span><span id="agent-note">First through the door.</span></div>
+        <div class="agent-passive"><span id="agent-passive"></span></div>
         <div class="agent-flip">
           <button id="agent-prev" type="button" aria-label="Previous agent">‹</button>
           <span id="agent-dots" aria-label="Agent">● ○ ○ ○</span>
@@ -297,8 +321,8 @@
           <ul id="roster-wardens"></ul>
         </div>
         <div class="lobby-brief">
-          <p><b>Map</b> Yard 9 — a desert-industrial yard at dusk.</p>
-          <p><b>Mode</b> Plant / defuse. First to 5 rounds takes the match.</p>
+          <p id="brief-map"><b>Map</b> Yard 9 — a desert-industrial yard at dusk.</p>
+          <p id="brief-mode"><b>Mode</b> Plant / defuse. First to 5 rounds takes the match.</p>
           <p><b>Buy</b> Spend your $800 between rounds: rifles, SMGs, grenades.</p>
         </div>
       </div>
@@ -306,6 +330,61 @@
     <div class="lobby-foot">
       <button id="lobby-start" type="button">START MATCH</button>
       <button id="lobby-back" type="button">BACK</button>
+    </div>
+  </div>
+</section>
+
+<section id="settings" hidden aria-label="Settings">
+  <div class="set-card">
+    <div class="eyebrow">SANDLINE · SETTINGS</div>
+    <h1>Settings</h1>
+    <p>Saved on this device, applied the next time the game opens.</p>
+    <div class="set-row">
+      <label for="set-sens">Mouse sensitivity</label>
+      <output id="set-sens-val">1.00x</output>
+      <input id="set-sens" type="range" min="0.5" max="2" step="0.05" value="1">
+    </div>
+    <div class="set-row">
+      <label for="set-vol">Master volume</label>
+      <output id="set-vol-val">50%</output>
+      <input id="set-vol" type="range" min="0" max="1" step="0.05" value="0.5">
+    </div>
+    <div class="set-row">
+      <label for="set-quality">Graphics quality</label>
+      <select id="set-quality">
+        <option value="high">High — full resolution</option>
+        <option value="low">Low — faster, softer</option>
+      </select>
+    </div>
+    <div class="set-row">
+      <label for="set-touch">Touch layout</label>
+      <select id="set-touch">
+        <option value="default">Default</option>
+        <option value="compact">Compact — smaller buttons</option>
+      </select>
+    </div>
+    <div class="set-foot">
+      <button id="settings-save" type="button">Save</button>
+      <button id="settings-back" class="ghost" type="button">Back</button>
+    </div>
+  </div>
+</section>
+
+<section id="results" hidden aria-label="Match results">
+  <div class="res-card">
+    <div class="eyebrow">SANDLINE · MATCH RESULTS</div>
+    <h1 id="results-title">Jackals win the match</h1>
+    <p id="results-sub"></p>
+    <div id="results-mvp"></div>
+    <table id="results-rows">
+      <thead><tr><th>Team</th><th>Player</th><th>K</th><th>D</th><th>A</th><th>Acc</th></tr></thead>
+      <tbody></tbody>
+    </table>
+    <p class="res-label">ROUND HISTORY</p>
+    <ul id="results-history" class="res-history"></ul>
+    <div class="res-foot">
+      <button id="results-again" type="button">Play again</button>
+      <button id="results-lobby" class="ghost" type="button">Back to lobby</button>
     </div>
   </div>
 </section>

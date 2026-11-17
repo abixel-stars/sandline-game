@@ -159,6 +159,7 @@ export function createBot(scene, actor, deps) {
     const error = (0.012 + dist * 0.0009) * (mover.groundSpeed() > 0.5 ? 1.8 : 1) * (0.6 + random() * 0.8);
     weaponFire(w);
     const pellets = def.pellets || 1;
+    let scored = false;
     for (let p = 0; p < pellets; p += 1) {
       const result = combat.fireHitscan(eye, dir, error, random, def.range);
       const muzzle = new THREE.Vector3(eye.x + dir.x * 0.6, eye.y - 0.1, eye.z + dir.z * 0.6);
@@ -166,9 +167,11 @@ export function createBot(scene, actor, deps) {
       if (result.actor) {
         const amount = def.damage * (result.part === 'head' ? def.headMult : 1);
         combat.damageActor(actor, result.actor, amount, result.part, deps.onKill, deps.onHit);
+        scored = true;
         break;
       }
     }
+    if (deps.onShotFired) deps.onShotFired(actor, scored);
     audio.shot(def.id, dist > 12);
     deps.onShot(actor, eye.x, eye.z);
     brain.burstLeft -= 1;
@@ -335,6 +338,7 @@ export function createBot(scene, actor, deps) {
     const money = actor.money;
     let primary = 'pistol';
     if (money >= 2700 && random() < 0.75) primary = 'rifle';
+    else if (money >= 3200 && random() < 0.3) primary = 'dmr';
     else if (money >= 2000 && random() < 0.5) primary = 'shotgun';
     else if (money >= 1500) primary = 'smg';
     else if (money >= 4750 && random() < 0.2) primary = 'sniper';

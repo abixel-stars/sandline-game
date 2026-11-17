@@ -74,3 +74,16 @@ export function findPath(from, to, out) {
 export function waypoint(id) {
   return WAYPOINTS[id];
 }
+
+// Map swaps rebuild the graph in place: the adjacency lists are refilled
+// from the new points and edges. Both maps carry 24 nodes, so the scratch
+// tables stay the size they were built with. Callers keep using
+// nearestWaypoint / findPath / waypoint.
+export function rebuildGraph(points, edges) {
+  adjacency.length = 0;
+  for (let i = 0; i < points.length; i += 1) adjacency.push([]);
+  for (const [a, b] of edges) {
+    adjacency[a].push(b);
+    adjacency[b].push(a);
+  }
+}

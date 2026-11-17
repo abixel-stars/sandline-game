@@ -1,0 +1,184 @@
+/* Expansion screens: settings, results, lobby pickers, scoreboard.
+   Same dusk palette as the HUD (index.html), flat colours only, no gradients.
+   Every touch target is at least 44px; narrow screens stack. */
+#settings, #results {
+  position: fixed;
+  inset: 0;
+  z-index: 12;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: color-mix(in srgb, var(--canvas) 86%, transparent);
+  pointer-events: auto;
+  overflow-y: auto;
+}
+#settings[hidden], #results[hidden] { display: none; }
+.set-card, .res-card {
+  width: min(520px, 100%);
+  padding: 28px 30px 30px;
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-top: 3px solid var(--accent);
+  border-radius: var(--radius-panel);
+  box-shadow: 0 16px 48px rgba(0,0,0,.6);
+}
+.set-card .eyebrow, .res-card .eyebrow {
+  font-family: var(--font-readout);
+  font-size: 12px;
+  letter-spacing: .18em;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+.set-card h1, .res-card h1 {
+  margin: 0 0 6px;
+  font-size: 32px;
+  line-height: 1.05;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.set-card p, .res-card p {
+  margin: 0 0 20px;
+  font-size: 15px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+.set-row { display: grid; grid-template-columns: 1fr auto; gap: 4px 14px; align-items: center; padding: 12px 0; border-bottom: 1px solid var(--hairline); }
+.set-row:last-of-type { border-bottom: 0; }
+.set-row label { font-size: 15px; font-weight: 600; }
+.set-row output { font-family: var(--font-readout); font-size: 14px; font-weight: 700; color: var(--gold); text-align: right; }
+.set-row input[type="range"] { grid-column: 1 / -1; width: 100%; accent-color: var(--accent); min-height: 32px; }
+.set-row select {
+  grid-column: 1 / -1;
+  font: inherit;
+  min-height: 44px;
+  padding: 8px 10px;
+  color: var(--ink);
+  background: rgba(0,0,0,.3);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
+}
+.set-foot, .res-foot { display: flex; gap: 12px; margin-top: 20px; }
+.set-foot button, .res-foot button {
+  font: inherit;
+  font-weight: 600;
+  min-height: 48px;
+  padding: 12px 22px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-control);
+  background: var(--accent);
+  color: #12312e;
+  cursor: pointer;
+}
+.set-foot button.ghost, .res-foot button.ghost {
+  background: transparent;
+  color: var(--ink);
+  border-color: var(--hairline);
+}
+.set-foot button:hover, .res-foot button:hover { border-color: var(--ink); }
+#settings-open {
+  display: block;
+  margin-top: 12px;
+  font: inherit;
+  font-weight: 600;
+  min-height: 44px;
+  padding: 10px 18px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+#settings-open:hover { border-color: var(--accent); color: var(--accent); }
+
+/* Lobby pickers: map and mode, two rows of chunky buttons. */
+.pickers { display: grid; gap: 10px; margin-bottom: 14px; }
+.picker-row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.picker-row .picker-label {
+  font-family: var(--font-readout);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: var(--muted);
+  min-width: 52px;
+}
+.pick {
+  font: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  min-height: 44px;
+  padding: 10px 16px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
+  background: rgba(0,0,0,.3);
+  color: var(--ink);
+  cursor: pointer;
+}
+.pick:hover { border-color: var(--muted); }
+.pick.on { border-color: var(--accent); background: rgba(46,196,182,.16); color: var(--accent); }
+.pick:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.agent-passive { margin-top: 6px; font-size: 14px; color: var(--gold); }
+.agent-passive span { font-family: var(--font-readout); font-weight: 700; }
+.picked-line { font-size: 13px; color: var(--muted); }
+
+/* Results table: team, name, kills, deaths, assists, accuracy. */
+#results-mvp { font-family: var(--font-readout); font-size: 15px; font-weight: 700; color: var(--gold); margin-bottom: 14px; }
+#results-rows { width: 100%; border-collapse: collapse; font-size: 14px; margin-bottom: 16px; }
+#results-rows th, #results-rows td { padding: 7px 8px; text-align: right; border-bottom: 1px solid var(--hairline); }
+#results-rows th:first-child, #results-rows td:first-child { text-align: left; }
+#results-rows th:nth-child(2), #results-rows td:nth-child(2) { text-align: left; }
+#results-rows tr.mvp td { color: var(--gold); font-weight: 700; }
+#results-rows .tj { color: var(--accent); }
+#results-rows .tw { color: #ff8a5c; }
+.res-history { margin: 0 0 4px; padding: 0; list-style: none; font-size: 13px; color: var(--muted); display: grid; gap: 4px; }
+.res-history li { font-family: var(--font-readout); }
+.res-label { font-family: var(--font-readout); font-size: 12px; letter-spacing: .14em; color: var(--muted); margin: 0 0 6px; }
+
+/* Deathmatch scoreboard: hold Tab to peek at both teams. */
+#scoreboard {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  width: min(420px, 92vw);
+  background: color-mix(in srgb, var(--surface) 96%, transparent);
+  border: 1px solid var(--hairline);
+  border-top: 3px solid var(--accent);
+  border-radius: var(--radius-panel);
+  padding: 16px 20px 18px;
+  pointer-events: none;
+  box-shadow: 0 16px 48px rgba(0,0,0,.65);
+  z-index: 5;
+}
+#scoreboard[hidden] { display: none; }
+#scoreboard h2 { margin: 0 0 4px; font-size: 18px; font-weight: 700; letter-spacing: .02em; }
+#scoreboard .sb-score { font-family: var(--font-readout); font-size: 15px; font-weight: 700; margin-bottom: 10px; }
+#scoreboard .sb-score .tj { color: var(--accent); }
+#scoreboard .sb-score .tw { color: #ff8a5c; }
+#scoreboard table { width: 100%; border-collapse: collapse; font-size: 14px; }
+#scoreboard th, #scoreboard td { padding: 5px 6px; text-align: right; border-bottom: 1px solid var(--hairline); }
+#scoreboard th:first-child, #scoreboard td:first-child { text-align: left; }
+#scoreboard td.tj { color: var(--accent); }
+#scoreboard td.tw { color: #ff8a5c; }
+
+/* Compact touch layout: smaller buttons, tighter stick, HUD tucked up. */
+body.touch-compact #stick-zone { width: 120px; height: 120px; }
+body.touch-compact #stick-base { width: 96px; height: 96px; }
+body.touch-compact #stick-knob { width: 44px; height: 44px; }
+body.touch-compact .tbtn { min-width: 48px; min-height: 48px; font-size: 10px; }
+body.touch-compact .tbtn.big { min-width: 64px; min-height: 64px; font-size: 12px; }
+body.touch-compact #btn-fire { right: 12px; bottom: calc(16px + env(safe-area-inset-bottom)); }
+body.touch-compact #btn-jump { right: 88px; bottom: calc(16px + env(safe-area-inset-bottom)); }
+body.touch-compact #btn-crouch { right: 88px; bottom: calc(76px + env(safe-area-inset-bottom)); }
+body.touch-compact #btn-reload { right: 12px; bottom: calc(92px + env(safe-area-inset-bottom)); }
+body.touch-compact #btn-swap { right: 88px; bottom: calc(136px + env(safe-area-inset-bottom)); }
+body.touch-compact #btn-use { right: 12px; bottom: calc(152px + env(safe-area-inset-bottom)); }
+
+@media (max-width: 700px) {
+  .set-card, .res-card { padding: 22px 22px 24px; }
+  .set-card h1, .res-card h1 { font-size: 28px; }
+  .set-foot, .res-foot { flex-direction: column; }
+  .set-foot button, .res-foot button { width: 100%; }
+  #results-rows { font-size: 12px; }
+  #results-rows th, #results-rows td { padding: 6px 4px; }
+}

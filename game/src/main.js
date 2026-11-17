@@ -4,6 +4,13 @@
 // SANDLINE: Jackals (you + 3 bots) plant the charge at A or B; Wardens (4 bots) stop them.
 // The screens first: start screen and lobby lead the entry, the sim follows.
 import { createLobby } from './lobby.js';
+import { createMapSwitch } from './maps.js';
+import { createDeathmatch, TDM_TARGET } from './deathmatch.js';
+import { createSettings } from './settings.js';
+import { createResults } from './results.js';
+import { createStats } from './stats.js';
+import { passiveFor, applyPassiveStep } from './passives.js';
+import { combatHooks } from './combat.js';
 import * as THREE from 'three';
 import { PALETTE } from './palette.js';
 import { mulberry32, clamp } from './rng.js';
@@ -52,6 +59,36 @@ const lobby = createLobby({
     hud.showOverlay('start');
   },
 });
+const maps = createMapSwitch(scene, world);
+const stats = createStats(state);
+combatHooks.onDamage = (shooter, target) => stats.damaged(shooter, target);
+const settings = createSettings({
+  audio,
+  onQuality: (quality) => {
+    renderer.setPixelRatio(quality === 'low' ? 1 : Math.min(window.devicePixelRatio, isTouchDevice ? 1.5 : 2));
+  },
+});
+settings.apply();
+const results = createResults({
+  stats,
+  nameOf: (actor) => botDisplayName(actor),
+  onPlayAgain: () => {
+    results.hide();
+    resetMatch();
+    beginMatch();
+  },
+  onBackToLobby: () => {
+    results.hide();
+    resetMatch();
+    enterLobby();
+  },
+});
+const tdm = createDeathmatch({
+  state,
+  nameOf: (actor) => botDisplayName(actor),
+  respawnActor: (actor) => respawnActor(actor),
+  onMatchEnd: () => endMatch(),
+});
 const player = createPlayer(world.colliders);
 const input = createInput(renderer.domElement, onLockChange, {
   onSwap: () => switchWeapon(playerActor.weapon.def.id === 'pistol' ? 1 : 2),
@@ -73,7 +110,7 @@ function makeActor(id, team, slot, isPlayer) {
     weapon: null, weapons: {},
     money: TUNE.startMoney,
     loadout: { primary: 'rifle', grenades: { frag: 0, smoke: 0 } },
-    kills: 0, deaths: 0, bot: null,
+    kills: 0, deaths: 0, shots: 0, hits: 0, bot: null,
   };
 }
 const playerActor = makeActor(0, TEAM.JACKALS, 0, true);
@@ -89,6 +126,7 @@ const botDeps = {
   onKill: handleKill,
   onHit: handleHit,
   onShot: (actor, x, z) => pushNoise(state, x, z, true),
+  onShotFired: (actor, hit) => stats.shot(actor, hit),
   onChannelStart: handleChannelStart,
 };
 for (const actor of botActors) bots.push(createBot(scene, actor, botDeps));
@@ -105,6 +143,10 @@ let started = false;
 let frozen = false;
 let lobbyOpen = false; // the lobby holds the match: nothing steps while it is up
 let lobbyShown = false; // the lobby opens once per match, before round 1
+let matchMode = 'plant'; // 'plant' rounds or 'tdm' first-to-20
+let matchMap = 'yard9'; // 'yard9' dusk or 'yard10' night
+let currentPassive = passiveFor('YOU');
+let roundLog = []; // { label } per finished round, for the results screen
 let elapsed = 0;
 let accumulator = 0;
 let lastTime = performance.now();
@@ -124,6 +166,10 @@ function resetMatch() {
   state.events = [];
   state.noise = [];
   lobbyShown = false;
+  stats.reset();
+  roundLog = [];
+  results.hide();
+  tdm.stop();
   for (const actor of state.actors) {
     actor.money = TUNE.startMoney;
     actor.kills = 0;
@@ -138,6 +184,7 @@ function setupRound() {
   state.phase = PHASE.BUY;
   state.phaseTime = TUNE.buyTime;
   state.roundTimeLeft = TUNE.roundTime;
+  if (matchMode === 'tdm') state.roundTimeLeft = 9999; // deathmatch has no round clock
   state.plant = null;
   state.charge = null;
   state.winner = -1;
@@ -163,6 +210,7 @@ function setupRound() {
       actor.bot.reset(spawn.x, spawn.z, actor.team === TEAM.JACKALS ? 0 : Math.PI);
     }
   }
+  if (currentPassive.health) playerActor.health = TUNE.playerHealth + currentPassive.health;
   // Weapons: you keep what you bought; bots buy fresh.
   if (!playerActor.weapons[playerActor.loadout.primary]) {
     playerActor.weapons[playerActor.loadout.primary] = createWeaponState(playerActor.loadout.primary);
@@ -174,10 +222,14 @@ function setupRound() {
     bot.buy();
     bot.roundSetup(state.round, random);
   }
-  // One Jackal bot carries the charge.
-  const jackalBots = botActors.filter((a) => a.team === TEAM.JACKALS);
-  carrier = jackalBots[Math.floor(random() * jackalBots.length)];
-  for (const bot of jackalBots) bot.bot.brain.isCarrier = bot === carrier;
+  // One Jackal bot carries the charge — plant mode only; deathmatch has none.
+  if (matchMode !== 'tdm') {
+    const jackalBots = botActors.filter((a) => a.team === TEAM.JACKALS);
+    carrier = jackalBots[Math.floor(random() * jackalBots.length)];
+    for (const bot of jackalBots) bot.bot.brain.isCarrier = bot === carrier;
+  } else {
+    carrier = null;
+  }
   if (!shot) hud.showBuy(playerActor, state.round);
   hud.setScore(state.score, state.round);
   hud.setHealth(playerActor.health);
@@ -189,7 +241,8 @@ function setupRound() {
 function startRound() {
   state.phase = PHASE.LIVE;
   state.phaseTime = 0;
-  state.roundTimeLeft = TUNE.roundTime;
+  // Deathmatch keeps the 9999 set by setupRound: no round clock there.
+  if (matchMode !== 'tdm') state.roundTimeLeft = TUNE.roundTime;
   hud.hideBuy();
   hud.showBanner(`ROUND ${state.round}`, 'Plant the charge at A or B — or eliminate the Wardens');
   audio.buy();
@@ -202,6 +255,7 @@ function endRound(winner, reason) {
   state.winner = winner;
   state.winReason = reason;
   state.score[winner] += 1;
+  roundLog.push({ label: `Round ${state.round} — ${winner === TEAM.JACKALS ? 'Jackals' : 'Wardens'} · ${reason}` });
   awardMoney(state, winner, TUNE.winMoney);
   awardMoney(state, 1 - winner, TUNE.lossMoney);
   channeling = null;
@@ -222,10 +276,22 @@ function endMatch() {
   state.phase = PHASE.MATCH_END;
   const winner = state.score[0] > state.score[1] ? TEAM.JACKALS : TEAM.WARDENS;
   state.matchWinner = winner;
+  tdm.stop();
   if (document.pointerLockElement) document.exitPointerLock();
+  // The results screen takes over from here; the match-end overlay stays
+  // hidden while it is open (onLockChange guards the desktop path).
+  results.show({
+    winner,
+    score: [state.score[0], state.score[1]],
+    mode: matchMode,
+    rounds: matchMode === 'tdm'
+      ? [{ label: `Deathmatch — first to ${TDM_TARGET} · ${state.score[0]} — ${state.score[1]}` }]
+      : roundLog,
+    actors: state.actors,
+  });
   // Touch has no pointer lock to lose, so the overlay never arrives via
-  // onLockChange: show it here instead.
-  if (input.isTouch) {
+  // onLockChange: show it here instead — unless results already took over.
+  if (input.isTouch && !results.isOpen) {
     hud.showOverlay('matchEnd', `${winner === TEAM.JACKALS ? 'Jackals' : 'Wardens'} win the match ${state.score[0]} — ${state.score[1]}.`);
   }
 }
@@ -247,6 +313,9 @@ function handleKill(shooter, target, headshot) {
   hud.killfeed(`${sName} ▸ ${tName}${headshot ? ' [HEADSHOT]' : ''}`, shooter.team);
   shooter.kills += 1;
   target.deaths += 1;
+  stats.killed(shooter, target);
+  tdm.onKill(shooter, target);
+  if (tdm.active) tdm.refreshBoard();
   if (shooter) shooter.money = Math.min(TUNE.maxMoney, shooter.money + TUNE.killMoney);
   if (shooter === playerActor) {
     hud.setMoney(playerActor.money);
@@ -297,6 +366,7 @@ function plantCharge(site, x, z) {
 
 function checkRoundEnd() {
   if (state.phase !== PHASE.LIVE) return;
+  if (matchMode === 'tdm') return; // deathmatch ends on kills, never on wipe
   const j = aliveCount(state, TEAM.JACKALS);
   const w = aliveCount(state, TEAM.WARDENS);
   if (state.charge) {
@@ -348,6 +418,7 @@ function playerShoot() {
   muzzlePos.x += Math.cos(player.state.yaw) * 0.2;
   muzzlePos.z -= Math.sin(player.state.yaw) * 0.2;
   const pellets = def.pellets || 1;
+  let scored = false;
   for (let p = 0; p < pellets; p += 1) {
     const result = combat.fireHitscan(eyePos, direction, spread, random, def.range);
     combat.showTracer(muzzlePos, result.point, def.tracer);
@@ -356,9 +427,11 @@ function playerShoot() {
       const killed = combat.damageActor(playerActor, result.actor, amount, result.part, handleKill, handleHit);
       hud.hitMarker(killed, shot ? 4000 : 90);
       audio.hit(result.part === 'head');
+      scored = true;
       break;
     }
   }
+  stats.shot(playerActor, scored);
   audio.shot(def.id, false);
   pushNoise(state, player.state.position.x, player.state.position.z, true);
   player.recoil(def.recoil * (0.8 + random() * 0.4), (random() * 2 - 1) * def.recoil * 0.35);
@@ -437,8 +510,8 @@ function handlePressed() {
 
 // ---- Plant / defuse channels, run in the fixed step ----
 function stepChannels(dt) {
-  // Your plant: hold E inside a site.
-  if (state.phase === PHASE.LIVE && playerActor.alive && !state.charge && playerActor.team === TEAM.JACKALS) {
+  // Your plant: hold E inside a site. Plant mode only — deathmatch has no charge.
+  if (state.phase === PHASE.LIVE && playerActor.alive && !state.charge && playerActor.team === TEAM.JACKALS && matchMode !== 'tdm') {
     const site = siteAt(player.state.position.x, player.state.position.z);
     if (site && input.state.keys.has('KeyE')) {
       plantProgress += dt / TUNE.plantTime;
@@ -517,13 +590,14 @@ function step(dt) {
   state.time += dt;
   stepCount += 1;
   elapsed += dt;
+  tdm.step();
 
   if (state.phase === PHASE.BUY) {
     state.phaseTime -= dt;
     if (state.phaseTime <= 0) startRound();
   } else if (state.phase === PHASE.LIVE) {
     state.roundTimeLeft -= dt;
-    if (state.roundTimeLeft <= 0 && !state.charge) endRound(TEAM.WARDENS, 'Time expired — Wardens hold');
+    if (state.roundTimeLeft <= 0 && !state.charge && matchMode !== 'tdm') endRound(TEAM.WARDENS, 'Time expired — Wardens hold');
   } else if (state.phase === PHASE.ROUND_END) {
     state.phaseTime -= dt;
     if (state.phaseTime <= 0) nextRound();
@@ -531,7 +605,10 @@ function step(dt) {
 
   if (state.phase === PHASE.LIVE || state.phase === PHASE.BUY) {
     player.step(dt, input.state.keys);
-    if (playerActor.weapon) weaponStep(playerActor.weapon, dt);
+    if (playerActor.weapon) {
+      weaponStep(playerActor.weapon, dt);
+      applyPassiveStep(playerActor.weapon, currentPassive, dt);
+    }
     for (const bot of bots) bot.step(dt);
     stepChannels(dt);
     combat.step(dt, handleKill, handleHit);
@@ -550,6 +627,8 @@ function frame(now) {
   lastTime = now;
   if (!frozen && !lobbyOpen) {
     const look = input.takeLook();
+    look.x *= settings.values.sens;
+    look.y *= settings.values.sens;
     const sensitivity = input.state.aiming ? 0.0013 : 0.0022;
     player.look(look.x, look.y, sensitivity);
     handlePressed();
@@ -593,6 +672,7 @@ function frame(now) {
   hud.setHealth(playerActor.health);
   hud.setTimer(state.phase === PHASE.BUY ? state.phaseTime : state.charge ? state.charge.detonateIn : Math.max(0, state.roundTimeLeft), state.phase);
   hud.setAlive(aliveCount(state, TEAM.JACKALS), aliveCount(state, TEAM.WARDENS));
+  if (matchMode === 'tdm') hud.setTdmScore(state.score[0], state.score[1]);
   renderer.render(scene, camera);
 }
 
@@ -611,6 +691,18 @@ function enterLobby() {
 function beginMatch() {
   lobby.close();
   lobbyOpen = false;
+  const sel = lobby.selection();
+  matchMode = sel.mode;
+  matchMap = sel.map;
+  currentPassive = passiveFor(sel.agent);
+  player.setSpeedMul(currentPassive.speed);
+  hud.setMatchMode(matchMode);
+  if (matchMode === 'tdm') tdm.start();
+  else tdm.stop();
+  if (matchMap !== maps.current) {
+    maps.switchTo(matchMap);
+    setupRound();
+  }
   if (state.phase === PHASE.MATCH_END) resetMatch();
   else if (state.phase === PHASE.ROUND_END) nextRound();
   if (state.phase === PHASE.BUY) {
@@ -648,6 +740,7 @@ function onLockChange(locked) {
     started = true;
     hud.hideOverlay();
   } else if (state.phase === PHASE.MATCH_END) {
+    if (results.isOpen) return; // the results screen owns the end of a match
     hud.showOverlay('matchEnd', `${state.matchWinner === TEAM.JACKALS ? 'Jackals' : 'Wardens'} win the match ${state.score[0]} — ${state.score[1]}.`);
   } else if (state.phase === PHASE.ROUND_END) {
     hud.showOverlay('roundEnd', `${state.winReason} · ${state.score[0]} — ${state.score[1]}`);
@@ -663,6 +756,30 @@ window.addEventListener('resize', () => {
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
+
+// ---- Deathmatch respawns: back at your own base, weapon refilled ----
+function respawnActor(actor) {
+  const spawns = actor.team === TEAM.JACKALS ? SPAWNS.jackals : SPAWNS.wardens;
+  const pick = spawns[actor.slot % spawns.length];
+  actor.alive = true;
+  actor.health = TUNE.playerHealth + (actor.isPlayer ? currentPassive.health : 0);
+  if (actor.isPlayer) {
+    player.state.position.set(pick.x, 0, pick.z);
+    player.state.velocity.set(0, 0, 0);
+    player.state.yaw = actor.team === TEAM.JACKALS ? 0 : Math.PI;
+    player.state.pitch = 0;
+    spectate = null;
+    if (playerActor.weapon) {
+      playerActor.weapon.mag = playerActor.weapon.def.mag;
+      playerActor.weapon.reserve = playerActor.weapon.def.reserve;
+      playerActor.weapon.reloadLeft = 0;
+    }
+    hud.setHealth(playerActor.health);
+  } else {
+    actor.bot.reset(pick.x, pick.z, actor.team === TEAM.JACKALS ? 0 : Math.PI);
+    actor.weapon = createWeaponState(actor.loadout.primary);
+  }
+}
 
 // ---- Deterministic captures: ?shot=start|play|end&seed=N ----
 function settle(steps) {
@@ -682,6 +799,44 @@ function nearestEnemy() {
   return best;
 }
 
+function showResultsShot() {
+  hud.hideOverlay();
+  resetMatch();
+  const fixed = [
+    [14, 6, 3, 96], [9, 8, 2, 55], [7, 9, 4, 61], [6, 7, 1, 49],
+    [11, 10, 2, 58], [8, 11, 1, 52], [5, 12, 3, 44], [4, 13, 0, 41],
+  ];
+  state.actors.forEach((actor, i) => {
+    const [kills, deaths, assists, acc] = fixed[i];
+    actor.kills = kills;
+    actor.deaths = deaths;
+    const shots = 50;
+    stats.setRow(actor, shots, Math.round((shots * acc) / 100), assists);
+  });
+  state.score = [5, 3];
+  roundLog = [
+    { label: 'Round 1 — Jackals · Wardens eliminated' },
+    { label: 'Round 2 — Wardens · Charge defused' },
+    { label: 'Round 3 — Jackals · Charge detonated' },
+    { label: 'Round 4 — Jackals · Wardens eliminated' },
+    { label: 'Round 5 — Wardens · Time expired' },
+    { label: 'Round 6 — Jackals · Charge detonated' },
+    { label: 'Round 7 — Wardens · Jackals eliminated' },
+    { label: 'Round 8 — Jackals · Charge detonated' },
+  ];
+  results.show({
+    winner: TEAM.JACKALS,
+    score: [5, 3],
+    mode: 'plant',
+    rounds: roundLog,
+    actors: state.actors,
+  });
+  hud.setScore(state.score, state.round);
+  hud.setHealth(playerActor.health);
+  hud.setMoney(playerActor.money);
+  paintTwiceThenReady();
+}
+
 function runShot(name) {
   hud.hideOverlay();
   resetMatch();
@@ -693,6 +848,13 @@ function runShot(name) {
     lobbyOpen = true;
     hud.hideOverlay();
     hud.hideBuy();
+    const pickMap = params.get('map');
+    const pickMode = params.get('mode');
+    lobby.setSelection({
+      map: pickMap === 'yard10' ? 'yard10' : 'yard9',
+      mode: pickMode === 'tdm' ? 'tdm' : 'plant',
+      agent: 0,
+    });
     lobby.open(true);
     paintLobbyShot();
     return;
@@ -727,6 +889,35 @@ function runShot(name) {
       playerShoot();
       settle(2);
     }
+  } else if (name === 'night') {
+    // Yard 10 at night: the same scripted firefight, under floodlights.
+    // A short walk only: the frame should show the lit yard, not a corridor.
+    matchMap = 'yard10';
+    maps.switchTo('yard10');
+    setupRound();
+    startRound();
+    input.state.keys.add('KeyW');
+    for (let i = 0; i < 360; i += 1) {
+      const enemy = nearestEnemy();
+      if (enemy) aimAt(new THREE.Vector3(enemy.pos.x, enemy.pos.y + 1.2, enemy.pos.z));
+      if (i === 60) input.state.keys.delete('KeyW');
+      if (i >= 60 && playerActor.weapon && weaponReady(playerActor.weapon)) playerShoot();
+      step(FIXED_STEP);
+      if (!playerActor.alive) break;
+    }
+    input.state.keys.delete('KeyW');
+    hud.hideBanner();
+    const nightEnemy = nearestEnemy();
+    if (nightEnemy && playerActor.alive) {
+      aimAt(new THREE.Vector3(nightEnemy.pos.x, nightEnemy.pos.y + 1.2, nightEnemy.pos.z));
+      if (playerActor.weapon.mag === 0) playerActor.weapon.mag = playerActor.weapon.def.mag;
+      playerShoot();
+      settle(2);
+    }
+  } else if (name === 'results') {
+    // A finished match, fixed numbers: the results table and the MVP.
+    showResultsShot();
+    return;
   } else {
     // Charge planted at A, the defuser already down, you covering the site.
     startRound();
@@ -800,6 +991,12 @@ window.__sandline = {
   get ammo() { return playerActor.weapon ? playerActor.weapon.mag : -1; },
   get phase() { return state.phase; },
   get health() { return playerActor.health; },
+  get mode() { return matchMode; },
+  get map() { return matchMap; },
+  get score() { return [state.score[0], state.score[1]]; },
+  get actors() {
+    return state.actors.map((a) => ({ team: a.team, alive: a.alive, kills: a.kills, deaths: a.deaths }));
+  },
   input,
 };
 hud.showOverlay('start');

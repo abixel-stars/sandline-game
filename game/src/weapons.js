@@ -43,6 +43,18 @@ export const WEAPONS = {
     fireGap: 0.9, reloadTime: 2.4, spreadStill: 0.02, spreadMove: 0.045,
     recoil: 0.035, movePenalty: 0.9, range: 28, tracer: PALETTE.danger,
   },
+  dmr: {
+    id: 'dmr', name: 'Kestrel-7', short: 'KS-7', price: 3200, slot: 1,
+    damage: 52, headMult: 3, mag: 10, reserve: 30, auto: false,
+    fireGap: 0.5, reloadTime: 2.2, spreadStill: 0.001, spreadMove: 0.06,
+    recoil: 0.03, movePenalty: 1.2, range: 110, tracer: PALETTE.accent, scopeFov: 40,
+  },
+  twin: {
+    id: 'twin', name: 'Twin-12', short: 'TW-12', price: 2400, slot: 1,
+    damage: 8, headMult: 2, mag: 2, reserve: 16, auto: false, pellets: 12,
+    fireGap: 1.6, reloadTime: 2.8, spreadStill: 0.026, spreadMove: 0.05,
+    recoil: 0.05, movePenalty: 0.8, range: 22, tracer: PALETTE.danger,
+  },
 };
 
 export const GRENADES = {
@@ -57,6 +69,8 @@ export const BUY_MENU = [
   { key: '4', id: 'shotgun', label: 'Breacher 12 — shotgun' },
   { key: '5', id: 'frag', label: 'Spark Frag — grenade' },
   { key: '6', id: 'smoke', label: 'Haze Smoke — grenade' },
+  { key: '7', id: 'dmr', label: 'Kestrel-7 — marksman rifle' },
+  { key: '8', id: 'twin', label: 'Twin-12 — double scattergun' },
 ];
 
 // One weapon instance: ammo and timers for one actor.
@@ -143,6 +157,23 @@ export function createViewModel(camera, weaponId) {
     const pump = new THREE.Mesh(new THREE.BoxGeometry(0.07, 0.06, 0.2), grip);
     pump.position.set(0, -0.04, -0.28);
     model.add(pump);
+  }
+  if (weaponId === 'dmr') {
+    const scope = new THREE.Mesh(new THREE.CylinderGeometry(0.03, 0.03, 0.2, 10), grip);
+    scope.rotation.x = Math.PI / 2;
+    scope.position.set(0, 0.085, -0.02);
+    model.add(scope);
+    const bipod = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.04, 0.16), grip);
+    bipod.position.set(0, -0.05, -0.3);
+    model.add(bipod);
+  }
+  if (weaponId === 'twin') {
+    const second = new THREE.Mesh(new THREE.BoxGeometry(0.045, 0.045, barrelLength * 0.8), grip);
+    second.position.set(0.055, 0.025, -barrelLength * 0.75);
+    model.add(second);
+    const band = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.02, 0.06), accent);
+    band.position.set(0.027, 0.03, -barrelLength * 0.6);
+    model.add(band);
   }
   model.scale.setScalar(0.8);
   model.position.set(0.26, -0.22, -0.45);

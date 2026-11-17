@@ -3,6 +3,7 @@
 // the start screen and closes it when the match begins. The 3D preview
 // lives in preview.js; this file only owns the panel and the rosters.
 import { createShowcase } from './preview.js';
+import { passiveLine } from './passives.js';
 
 // Your side, Jackals, in the order the match spawns them. The callsigns match
 // the bots' names in bot.js; the roles and notes are the lobby's own.
@@ -29,13 +30,54 @@ export function createLobby(hooks) {
   const roleEl = $('agent-role');
   const gunEl = $('agent-gun');
   const noteEl = $('agent-note');
+  const passiveEl = $('agent-passive');
   const dotsEl = $('agent-dots');
   const jackalsEl = $('roster-jackals');
   const wardensEl = $('roster-wardens');
+  const eyebrowEl = root.querySelector('.eyebrow');
+  const pickedEl = $('picked-line');
   const showcase = createShowcase($('agent-view'));
 
   let index = 0;
   let open = false;
+  let mapPick = 'yard9';
+  let modePick = 'plant';
+
+  function paintPickers() {
+    for (const [id, value] of [['map-y9', 'yard9'], ['map-y10', 'yard10']]) {
+      const el = $(id);
+      if (el) el.classList.toggle('on', mapPick === value);
+    }
+    for (const [id, value] of [['mode-plant', 'plant'], ['mode-tdm', 'tdm']]) {
+      const el = $(id);
+      if (el) el.classList.toggle('on', modePick === value);
+    }
+    const mapName = mapPick === 'yard10' ? 'Yard 10 Night' : 'Yard 9 Dusk';
+    const modeName = modePick === 'tdm' ? 'Deathmatch · first to 20' : 'Plant / Defuse · first to 5';
+    if (eyebrowEl) eyebrowEl.textContent = `${mapName.toUpperCase()} · 4V4 · ${modePick === 'tdm' ? 'FIRST TO 20' : 'FIRST TO 5'}`;
+    if (pickedEl) pickedEl.textContent = `${mapName} · ${modeName}`;
+    const briefMap = $('brief-map');
+    if (briefMap) {
+      briefMap.innerHTML = mapPick === 'yard10'
+        ? '<b>Map</b> Yard 10 — the same yard after dark, under floodlights.'
+        : '<b>Map</b> Yard 9 — a desert-industrial yard at dusk.';
+    }
+    const briefMode = $('brief-mode');
+    if (briefMode) {
+      briefMode.innerHTML = modePick === 'tdm'
+        ? '<b>Mode</b> Deathmatch. First to 20 eliminations takes the match.'
+        : '<b>Mode</b> Plant / defuse. First to 5 rounds takes the match.';
+    }
+  }
+
+  function wirePick(id, fn) {
+    const el = $(id);
+    if (el) el.addEventListener('click', fn);
+  }
+  wirePick('map-y9', () => { mapPick = 'yard9'; paintPickers(); });
+  wirePick('map-y10', () => { mapPick = 'yard10'; paintPickers(); });
+  wirePick('mode-plant', () => { modePick = 'plant'; paintPickers(); });
+  wirePick('mode-tdm', () => { modePick = 'tdm'; paintPickers(); });
 
   function rosterRow(name, role, gun, color, active) {
     const li = document.createElement('li');
@@ -69,6 +111,7 @@ export function createLobby(hooks) {
     roleEl.textContent = agent.role;
     gunEl.textContent = agent.gunName;
     noteEl.textContent = agent.note;
+    if (passiveEl) passiveEl.textContent = passiveLine(agent.call);
     dotsEl.textContent = JACKALS.map((_, d) => (d === index ? '●' : '○')).join(' ');
     showcase.setAgent({ gun: agent.gun, color: TEAL });
     renderRosters();
@@ -83,9 +126,19 @@ export function createLobby(hooks) {
     get isOpen() {
       return open;
     },
+    selection() {
+      return { map: mapPick, mode: modePick, agent: JACKALS[index].call };
+    },
+    setSelection(sel) {
+      if (sel.map === 'yard9' || sel.map === 'yard10') mapPick = sel.map;
+      if (sel.mode === 'plant' || sel.mode === 'tdm') modePick = sel.mode;
+      if (typeof sel.agent === 'number') showAgent(sel.agent);
+      paintPickers();
+    },
     open(shotMode) {
       root.hidden = false;
       open = true;
+      paintPickers();
       showAgent(index);
       if (shotMode) showcase.paint();
       else showcase.start();
