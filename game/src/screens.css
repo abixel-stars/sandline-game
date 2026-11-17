@@ -1,0 +1,165 @@
+/* Start screen and lobby: the same dusk palette as the HUD (index.html),
+   flat colours only, no gradients. The lobby sits above the game canvas and
+   the start overlay; it scrolls on short screens and respects safe areas. */
+#lobby {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  overflow-y: auto;
+  background: var(--canvas);
+  padding: 20px 20px calc(20px + env(safe-area-inset-bottom));
+  pointer-events: auto;
+}
+#lobby[hidden] { display: none; }
+
+.lobby-card { width: min(980px, 100%); margin: 0 auto; }
+.lobby-card .eyebrow {
+  font-family: var(--font-readout);
+  font-size: 12px;
+  letter-spacing: .18em;
+  color: var(--accent);
+  margin-bottom: 8px;
+}
+.lobby-card h1 {
+  margin: 0 0 6px;
+  font-size: 36px;
+  line-height: 1.05;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.lobby-card h1 span { color: var(--accent); }
+.lobby-sub { margin: 0 0 14px; font-size: 15px; line-height: 1.55; color: var(--muted); max-width: 62ch; }
+
+.lobby-main { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 16px; align-items: start; }
+
+.agent-stage {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-top: 3px solid var(--accent);
+  border-radius: var(--radius-panel);
+  padding: 12px 12px 14px;
+}
+#agent-view {
+  display: block;
+  width: 100%;
+  aspect-ratio: 1 / 1;
+  max-height: 36vh;
+  margin: 0 auto;
+  background: #20140d;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-panel);
+}
+.agent-name { display: flex; align-items: baseline; gap: 10px; margin-top: 10px; }
+#agent-call { font-family: var(--font-readout); font-size: 26px; font-weight: 700; letter-spacing: .02em; }
+#agent-role {
+  font-family: var(--font-readout);
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+  color: #12312e;
+  background: var(--accent);
+  border-radius: 3px;
+  padding: 3px 8px;
+}
+.agent-kit { display: flex; align-items: baseline; gap: 8px; margin-top: 6px; font-size: 14px; }
+#agent-gun { font-family: var(--font-readout); font-weight: 700; color: var(--gold); }
+#agent-note { color: var(--muted); }
+.agent-flip { display: flex; align-items: center; gap: 12px; margin-top: 10px; }
+.agent-flip button {
+  min-width: 44px;
+  min-height: 44px;
+  font: inherit;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--ink);
+  background: rgba(0,0,0,.3);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
+  cursor: pointer;
+}
+.agent-flip button:hover { border-color: var(--accent); color: var(--accent); }
+.agent-flip button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#agent-dots { font-family: var(--font-readout); font-size: 15px; letter-spacing: .3em; color: var(--accent); }
+
+.lobby-side { display: grid; gap: 16px; }
+.roster {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-panel);
+  padding: 12px 14px 8px;
+}
+.roster h2 {
+  margin: 0 0 8px;
+  font-family: var(--font-readout);
+  font-size: 12px;
+  letter-spacing: .14em;
+  color: var(--muted);
+}
+.roster h2 .tj { color: var(--accent); }
+.roster h2 .tw { color: #ff8a5c; }
+.roster ul { margin: 0; padding: 0; list-style: none; }
+.roster li {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 6px 6px;
+  border-bottom: 1px solid var(--hairline);
+  font-size: 14px;
+}
+.roster li:last-child { border-bottom: 0; }
+.roster li.active { background: rgba(46,196,182,.08); box-shadow: inset 3px 0 0 var(--accent); }
+.roster .dot { flex: none; width: 10px; height: 10px; border-radius: 50%; }
+.roster .who { font-family: var(--font-readout); font-weight: 700; }
+.roster .what { margin-left: auto; font-size: 12px; color: var(--muted); text-align: right; }
+
+.lobby-brief {
+  background: var(--surface);
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-panel);
+  padding: 12px 14px;
+  font-size: 14px;
+  line-height: 1.55;
+  color: var(--muted);
+}
+.lobby-brief p { margin: 0 0 6px; }
+.lobby-brief p:last-child { margin-bottom: 0; }
+.lobby-brief b { color: var(--ink); }
+
+.lobby-foot { display: flex; gap: 12px; margin-top: 14px; }
+#lobby-start {
+  font: inherit;
+  font-weight: 600;
+  min-height: 48px;
+  padding: 12px 26px;
+  border: 1px solid var(--accent);
+  border-radius: var(--radius-control);
+  background: var(--accent);
+  color: #12312e;
+  cursor: pointer;
+}
+#lobby-start:hover { background: var(--ink); border-color: var(--ink); }
+#lobby-start:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+#lobby-back {
+  font: inherit;
+  font-weight: 600;
+  min-height: 48px;
+  padding: 12px 20px;
+  border: 1px solid var(--hairline);
+  border-radius: var(--radius-control);
+  background: transparent;
+  color: var(--ink);
+  cursor: pointer;
+}
+#lobby-back:hover { border-color: var(--muted); }
+#lobby-back:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+
+/* Narrow screens: the stage goes first, rosters stack under it. */
+@media (max-width: 700px) {
+  #lobby { padding: 18px 14px calc(18px + env(safe-area-inset-bottom)); }
+  .lobby-card h1 { font-size: 32px; }
+  .lobby-main { grid-template-columns: minmax(0, 1fr); }
+  #agent-view { max-height: 46vh; }
+  .lobby-foot { flex-direction: column; }
+  #lobby-start, #lobby-back { width: 100%; }
+}
